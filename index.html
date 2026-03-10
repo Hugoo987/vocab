@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>WORD DUEL ⚔️</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- PeerJS for P2P cross-device connection (free, no server needed) -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+:root{
+  --bg:#07090f;--s1:rgba(255,255,255,.05);--bd:rgba(255,255,255,.10);
+  --ac:#00d4ff;--ac2:#ff6b35;--gold:#ffd700;--green:#39ff90;--red:#ff4055;
+  --text:#e8eaf0;--muted:#56627a;--fm:'Orbitron',monospace;--fb:'Noto Sans TC',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);background-image:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(0,212,255,.07) 0%,transparent 60%),radial-gradient(ellipse 50% 70% at 85% 85%,rgba(255,107,53,.06) 0%,transparent 60%);color:var(--text);font-family:var(--fb);min-height:100vh;display:flex;justify-content:center;padding:20px 16px 60px}
+#app{width:100%;max-width:500px}
+.mono{font-family:var(--fm)}
+.tag{font-family:var(--fm);font-size:9px;letter-spacing:3px;color:var(--ac);text-transform:uppercase}
+.divider{height:1px;background:var(--bd);margin:14px 0}
+.err{color:var(--red);font-size:11px;font-family:var(--fm);letter-spacing:1px;margin-top:6px}
+.ok{color:var(--green);font-size:11px;font-family:var(--fm);letter-spacing:1px;margin-top:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:18px 20px;margin-bottom:12px}
+.ctitle{font-family:var(--fm);font-size:10px;letter-spacing:3px;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.ctitle::before{content:'▸';color:var(--ac)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 18px;border-radius:10px;border:1.5px solid var(--bd);background:transparent;color:var(--text);font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:1.5px;cursor:pointer;transition:all .18s;user-select:none;-webkit-user-select:none}
+.btn:hover{border-color:var(--ac);color:var(--ac);transform:translateY(-1px)}
+.btn.primary{background:linear-gradient(135deg,#0090b8,#00d4ff);border-color:transparent;color:#000;font-weight:900;box-shadow:0 0 24px rgba(0,212,255,.35)}
+.btn.primary:hover{box-shadow:0 0 40px rgba(0,212,255,.55);transform:translateY(-2px)}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(255,64,85,.12)}
+.bfull{width:100%;padding:14px;font-size:13px}
+.brow{display:flex;gap:10px}
+input[type=text],textarea{background:rgba(255,255,255,.06);border:1px solid var(--bd);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:14px;padding:10px 14px;outline:none;transition:border-color .2s;width:100%}
+input[type=text]:focus,textarea:focus{border-color:var(--ac)}
+textarea{resize:vertical;min-height:90px;font-size:13px}
+input[type=range]{width:100%;accent-color:var(--ac)}
+
+/* LOGO */
+.logo-wrap{text-align:center;padding:28px 0 22px}
+.logo-icon{font-size:50px;display:block;margin-bottom:10px;animation:float 3s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.logo-title{font-family:var(--fm);font-size:34px;font-weight:900;letter-spacing:6px;background:linear-gradient(135deg,#00d4ff,#fff,#ff6b35);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{color:var(--muted);font-size:11px;letter-spacing:4px;font-family:var(--fm);margin-top:5px}
+
+/* MODE TABS */
+.mgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mtab{padding:12px 6px;border-radius:12px;border:1.5px solid var(--bd);background:transparent;cursor:pointer;text-align:center;transition:all .2s}
+.mtab .ti{font-size:22px;margin-bottom:5px}
+.mtab .tl{font-family:var(--fm);font-size:9px;letter-spacing:2px;color:var(--muted)}
+.mtab.sel{border-color:var(--ac);background:rgba(0,212,255,.08)}
+.mtab.sel .tl{color:var(--ac)}
+
+/* PILLS */
+.pills{display:flex;gap:8px}
+.pill{flex:1;padding:8px 4px;border-radius:8px;border:1.5px solid var(--bd);background:transparent;cursor:pointer;font-family:var(--fm);font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted);transition:all .18s;text-align:center}
+.pill.easy.sel{border-color:#39ff90;background:rgba(57,255,144,.12);color:#39ff90}
+.pill.medium.sel{border-color:#ffd700;background:rgba(255,215,0,.12);color:#ffd700}
+.pill.hard.sel{border-color:#ff4055;background:rgba(255,64,85,.12);color:#ff4055}
+.pill.custom.sel{border-color:var(--ac2);background:rgba(255,107,53,.12);color:var(--ac2)}
+
+/* IMPORT */
+.imp-zone{border:2px dashed var(--bd);border-radius:12px;padding:18px;text-align:center;cursor:pointer;transition:border-color .2s;color:var(--muted);font-size:12px;margin-bottom:8px}
+.imp-zone:hover,.imp-zone.drag{border-color:var(--ac);color:var(--ac)}
+.q-list{max-height:175px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--ac) transparent}
+.qi{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;margin-bottom:3px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.qw{font-family:var(--fm);font-size:12px;font-weight:700;color:var(--ac);min-width:90px}
+.qa{font-size:12px;color:var(--muted);flex:1}
+.qdel{margin-left:auto;background:none;border:none;color:var(--red);cursor:pointer;font-size:15px;opacity:.4;padding:0 4px}
+.qdel:hover{opacity:1}
+
+/* LOBBY */
+.rcode{font-family:var(--fm);font-size:44px;font-weight:900;letter-spacing:10px;text-align:center;color:var(--ac);text-shadow:0 0 30px rgba(0,212,255,.5);padding:14px 0}
+.pslot{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;border:1.5px solid var(--bd);background:rgba(255,255,255,.03);margin-bottom:8px}
+.picon{font-size:20px}
+.pname{font-family:var(--fm);font-size:12px}
+.badge{margin-left:auto;font-family:var(--fm);font-size:9px;letter-spacing:2px;padding:3px 8px;border-radius:6px}
+.badge.host{background:rgba(255,215,0,.15);color:var(--gold);border:1px solid rgba(255,215,0,.3)}
+.badge.joined{background:rgba(57,255,144,.15);color:var(--green);border:1px solid rgba(57,255,144,.3)}
+.badge.waiting{background:rgba(86,98,122,.2);color:var(--muted);border:1px solid rgba(86,98,122,.3);animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* GAME */
+.sboard{display:flex;gap:10px;margin-bottom:16px;align-items:center}
+.sc{flex:1;border-radius:13px;padding:12px 14px;background:var(--s1);border:1.5px solid var(--bd);transition:all .3s;position:relative;overflow:hidden}
+.sc.me{border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.07)}
+.scname{font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scscore{font-family:var(--fm);font-size:30px;font-weight:900}
+.scdot{position:absolute;top:10px;right:10px;width:10px;height:10px;border-radius:50%;background:var(--muted);transition:all .3s}
+.scdot.ans{background:var(--ac);box-shadow:0 0 8px var(--ac)}
+.scdot.ok{background:var(--green);box-shadow:0 0 8px var(--green)}
+.scdot.ng{background:var(--red);box-shadow:0 0 8px var(--red)}
+.twrap{display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+.vs-lbl{font-family:var(--fm);font-size:8px;color:var(--muted);letter-spacing:2px;margin-top:6px}
+.prog-wrap{height:3px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;margin-bottom:18px}
+.prog{height:100%;background:linear-gradient(90deg,#00d4ff,#ff6b35);border-radius:4px;transition:width .4s}
+.wbox{text-align:center;padding:26px 20px;margin-bottom:18px;background:rgba(255,255,255,.04);border-radius:18px;border:1px solid rgba(255,255,255,.08);position:relative;overflow:hidden}
+.wbox::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(0,212,255,.1) 0%,transparent 70%)}
+.wprompt{font-size:10px;letter-spacing:3px;color:var(--muted);font-family:var(--fm);margin-bottom:12px}
+.wtext{font-family:var(--fm);font-size:42px;font-weight:900;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(135deg,#fff,#00d4ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 18px rgba(0,212,255,.35))}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.opt{padding:13px 14px;border-radius:13px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.10);color:var(--text);cursor:pointer;text-align:left;transition:all .18s;display:flex;align-items:center;gap:9px;font-size:14px;font-family:var(--fb);-webkit-user-select:none;user-select:none}
+.opt:not(:disabled):hover{border-color:var(--ac);background:rgba(0,212,255,.08);transform:translateY(-1px)}
+.opt:disabled{cursor:default}
+.opt.selme{border-color:var(--ac)!important;background:rgba(0,212,255,.13)!important}
+.opt.correct{border-color:var(--green)!important;background:rgba(57,255,144,.12)!important;color:var(--green)}
+.opt.wrong{border-color:var(--red)!important;background:rgba(255,64,85,.12)!important;color:var(--red)}
+.olbl{width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:10px;font-weight:900;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10)}
+.opt.correct .olbl{background:rgba(57,255,144,.2);border-color:var(--green);color:var(--green)}
+.opt.wrong .olbl{background:rgba(255,64,85,.2);border-color:var(--red);color:var(--red)}
+.sbar{text-align:center;padding:9px;border-radius:9px;font-family:var(--fm);font-size:10px;letter-spacing:2px;margin-top:12px;border:1px solid transparent}
+.sbar.wait{background:rgba(255,215,0,.07);color:var(--gold);border-color:rgba(255,215,0,.2);animation:blink 1.5s infinite}
+.sbar.rev-ok{background:rgba(57,255,144,.07);color:var(--green);border-color:rgba(57,255,144,.2)}
+.sbar.rev-ng{background:rgba(255,64,85,.07);color:var(--red);border-color:rgba(255,64,85,.2)}
+.sbar.idle{background:rgba(255,255,255,.03);color:var(--muted);border-color:rgba(255,255,255,.06)}
+
+/* RESULT */
+.rhero{text-align:center;padding:24px 0 16px}
+.rtrophy{font-size:60px;animation:float 2s ease-in-out infinite}
+.rtitle{font-family:var(--fm);font-size:22px;font-weight:900;margin-top:8px}
+.rsub{font-family:var(--fm);font-size:10px;letter-spacing:4px;color:var(--ac);margin-top:5px}
+.cmp{display:flex;gap:4px;align-items:center}
+.cs{flex:1}
+.csname{font-family:var(--fm);font-size:9px;color:var(--muted);text-align:center;margin-bottom:4px}
+.csval{font-family:var(--fm);font-size:36px;font-weight:900;text-align:center}
+.cspct{font-size:11px;color:var(--muted);text-align:center;margin-top:2px}
+.csbw{height:5px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;margin-top:7px}
+.csb{height:100%;border-radius:4px;transition:width 1s ease}
+.cs.win .csval{color:var(--gold)}
+.cvd{width:28px;text-align:center;font-family:var(--fm);font-size:11px;color:var(--muted);flex-shrink:0}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scell{background:rgba(255,255,255,.04);border-radius:12px;padding:13px;border:1px solid rgba(255,255,255,.06)}
+.slbl{font-family:var(--fm);font-size:8px;letter-spacing:2px;color:var(--muted);margin-bottom:8px}
+.svals{display:flex;justify-content:space-between}
+.sv{font-family:var(--fm);font-size:15px;font-weight:700}
+
+/* OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;z-index:900;padding:20px}
+.modal{background:#0c1220;border:1px solid var(--bd);border-radius:20px;padding:28px 24px;max-width:360px;width:100%}
+.mtitle{font-family:var(--fm);font-size:13px;color:var(--ac);letter-spacing:3px;margin-bottom:20px;text-align:center}
+
+/* TOAST */
+.toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-90px);background:rgba(8,12,22,.97);border:1px solid var(--ac);border-radius:12px;padding:10px 20px;font-family:var(--fm);font-size:11px;color:var(--ac);letter-spacing:1px;z-index:1000;box-shadow:0 0 20px rgba(0,212,255,.2);transition:transform .3s;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* CONN PILL */
+#cpill{position:fixed;bottom:14px;right:14px;font-family:var(--fm);font-size:9px;letter-spacing:2px;padding:5px 10px;border-radius:20px;background:rgba(8,12,22,.9);border:1px solid;transition:all .3s;z-index:800}
+#cpill.on{border-color:var(--green);color:var(--green)}
+#cpill.off{border-color:var(--red);color:var(--red)}
+#cpill.con{border-color:var(--gold);color:var(--gold)}
+
+@media(max-width:380px){.wtext{font-size:30px}.rcode{font-size:32px;letter-spacing:6px}.scscore{font-size:24px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<div id="cpill" class="off">● OFFLINE</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════
+//  WORD BANKS
+// ═══════════════════════════════════════════════════════
+const BANKS={
+  easy:[
+    {word:"apple",options:["蘋果","香蕉","橘子","葡萄"],answer:0},
+    {word:"book",options:["椅子","書","桌子","窗戶"],answer:1},
+    {word:"cat",options:["狗","鳥","貓","魚"],answer:2},
+    {word:"dog",options:["狗","貓","兔子","馬"],answer:0},
+    {word:"egg",options:["麵包","牛奶","蛋","米飯"],answer:2},
+    {word:"fish",options:["肉","魚","蔬菜","水果"],answer:1},
+    {word:"green",options:["藍色","紅色","黃色","綠色"],answer:3},
+    {word:"house",options:["學校","醫院","房子","商店"],answer:2},
+    {word:"jump",options:["跑","跳","走","游"],answer:1},
+    {word:"king",options:["王子","國王","女王","騎士"],answer:1},
+    {word:"lion",options:["老虎","熊","獅子","豹"],answer:2},
+    {word:"moon",options:["太陽","星星","月亮","雲"],answer:2},
+    {word:"nose",options:["眼睛","耳朵","嘴巴","鼻子"],answer:3},
+    {word:"rain",options:["雪","冰雹","雨","霧"],answer:2},
+    {word:"sun",options:["月亮","太陽","星星","雲"],answer:1},
+    {word:"tree",options:["樹","花","草","葉"],answer:0},
+    {word:"water",options:["火","土","水","風"],answer:2},
+    {word:"happy",options:["悲傷的","憤怒的","快樂的","疲倦的"],answer:2},
+    {word:"run",options:["跳","跑","游泳","飛"],answer:1},
+    {word:"big",options:["小的","大的","高的","長的"],answer:1},
+  ],
+  medium:[
+    {word:"ancient",options:["現代的","古老的","巨大的","神秘的"],answer:1},
+    {word:"brave",options:["聰明的","勇敢的","美麗的","強壯的"],answer:1},
+    {word:"curious",options:["悲傷的","憤怒的","好奇的","高興的"],answer:2},
+    {word:"delicate",options:["粗糙的","精緻的","巨大的","堅硬的"],answer:1},
+    {word:"enormous",options:["微小的","普通的","巨大的","美麗的"],answer:2},
+    {word:"fragile",options:["堅固的","易碎的","笨重的","輕盈的"],answer:1},
+    {word:"generous",options:["吝嗇的","慷慨的","懶惰的","貪婪的"],answer:1},
+    {word:"harvest",options:["播種","耕地","收穫","澆水"],answer:2},
+    {word:"ignore",options:["注意","忽視","尊重","記憶"],answer:1},
+    {word:"journey",options:["目的地","旅程","地圖","行李"],answer:1},
+    {word:"knowledge",options:["謙遜","勇氣","智慧","知識"],answer:3},
+    {word:"liberty",options:["平等","自由","博愛","正義"],answer:1},
+    {word:"merchant",options:["農夫","士兵","商人","醫生"],answer:2},
+    {word:"narrow",options:["寬闊的","狹窄的","高聳的","平坦的"],answer:1},
+    {word:"obvious",options:["隱藏的","複雜的","明顯的","模糊的"],answer:2},
+    {word:"patient",options:["急躁的","懶惰的","有耐心的","粗心的"],answer:2},
+    {word:"rescue",options:["攻擊","逃跑","拯救","放棄"],answer:2},
+    {word:"sincere",options:["虛偽的","真誠的","殘忍的","懦弱的"],answer:1},
+    {word:"triumph",options:["失敗","平局","勝利","退出"],answer:2},
+    {word:"unique",options:["普通的","常見的","相似的","獨特的"],answer:3},
+  ],
+  hard:[
+    {word:"ambiguous",options:["清晰的","模糊的","精確的","直接的"],answer:1},
+    {word:"benevolent",options:["惡意的","仁慈的","冷漠的","嚴格的"],answer:1},
+    {word:"clandestine",options:["公開的","秘密的","普通的","合法的"],answer:1},
+    {word:"desolate",options:["熱鬧的","荒涼的","肥沃的","溫暖的"],answer:1},
+    {word:"ephemeral",options:["永久的","短暫的","重要的","穩定的"],answer:1},
+    {word:"fortuitous",options:["必然的","悲慘的","偶然幸運的","計劃中的"],answer:2},
+    {word:"gregarious",options:["孤僻的","愛社交的","嚴肅的","多疑的"],answer:1},
+    {word:"hypocritical",options:["真誠的","直率的","虛偽的","謙遜的"],answer:2},
+    {word:"impeccable",options:["有缺陷的","無可挑剔的","普通的","雜亂的"],answer:1},
+    {word:"juxtapose",options:["分開","並置對比","混合","隱藏"],answer:1},
+    {word:"laconic",options:["冗長的","言簡意賅的","混亂的","詩意的"],answer:1},
+    {word:"melancholy",options:["喜悅","憤怒","憂鬱","恐懼"],answer:2},
+    {word:"nonchalant",options:["緊張的","漠不關心的","興奮的","謹慎的"],answer:1},
+    {word:"ominous",options:["吉祥的","不祥的","平靜的","美好的"],answer:1},
+    {word:"paradox",options:["定律","矛盾語","定義","公式"],answer:1},
+    {word:"quintessential",options:["次要的","最典型的","罕見的","複雜的"],answer:1},
+    {word:"resilient",options:["脆弱的","固執的","有彈性的","被動的"],answer:2},
+    {word:"serendipity",options:["命運","意外驚喜","悲劇","巧合計劃"],answer:1},
+    {word:"tenacious",options:["懦弱的","頑強的","隨意的","冷漠的"],answer:1},
+    {word:"ubiquitous",options:["罕見的","獨特的","無處不在的","古老的"],answer:2},
+  ]
+};
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+const shuffle=a=>[...a].sort(()=>Math.random()-.5);
+const pickQ=(bank,n)=>shuffle(bank).slice(0,Math.min(n,bank.length));
+const OL=['A','B','C','D'];
+const $=id=>document.getElementById(id);
+const qs=s=>document.querySelectorAll(s);
+const genCode=()=>Math.random().toString(36).substr(2,6).toUpperCase();
+const aiDelay=d=>d==='easy'?2500+Math.random()*4000:d==='medium'?900+Math.random()*2500:280+Math.random()*900;
+const aiAcc=d=>d==='easy'?.65:d==='medium'?.82:.96;
+
+function parseBank(text){
+  const lines=text.trim().split('\n').filter(l=>l.trim());
+  const raw=[];
+  for(const line of lines){
+    const parts=line.split(/[,，|｜\t]/).map(p=>p.trim()).filter(Boolean);
+    if(parts.length<2) continue;
+    raw.push({word:parts[0],correct:parts[1],wrongs:parts.slice(2)});
+  }
+  const allC=raw.map(r=>r.correct);
+  return raw.map(r=>{
+    let w=[...r.wrongs];
+    const pool=shuffle(allC.filter(c=>c!==r.correct));
+    while(w.length<3&&pool.length) w.push(pool.shift());
+    while(w.length<3) w.push('—');
+    w=w.slice(0,3);
+    const opts=shuffle([r.correct,...w]);
+    return {word:r.word,options:opts,answer:opts.indexOf(r.correct)};
+  }).filter(r=>r.answer>=0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST / CONN PILL
+// ═══════════════════════════════════════════════════════
+function toast(msg,color='var(--ac)'){
+  const t=$('toast');
+  t.textContent=msg;t.style.borderColor=color;t.style.color=color;
+  t.classList.add('show');clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),2800);
+}
+function setConn(s){
+  const p=$('cpill');if(!p)return;
+  if(s==='on'){p.className='on';p.textContent='● ONLINE';}
+  else if(s==='con'){p.className='con';p.textContent='◌ 連接中…';}
+  else{p.className='off';p.textContent='● OFFLINE';}
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const G={
+  screen:'home',mode:'ai',
+  myName:'',p2Name:'',aiDiff:'medium',
+  cfg:{wordBank:'medium',rounds:10,bankLabel:'中等'},
+  customBank:[],
+  questions:[],qIdx:0,phase:'playing',
+  myAns:null,oppAns:null,
+  myScore:0,oppScore:0,
+  myTimes:[],oppTimes:[],
+  mySt:0,oppSt:0,myMaxSt:0,oppMaxSt:0,
+  timeLeft:10,_timer:null,_revTO:null,_aiTO:null,qStart:0,
+  // local
+  l1Ans:null,l2Ans:null,
+  // online
+  peer:null,conn:null,isHost:false,room:'',oppName:'',
+};
+
+// ═══════════════════════════════════════════════════════
+//  P2P — PeerJS
+// ═══════════════════════════════════════════════════════
+const PEERJS_OPTS={
+  host:'0.peerjs.com',port:443,path:'/',secure:true,
+  config:{iceServers:[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'},
+    {urls:'stun:global.stun.twilio.com:3478'},
+  ]},
+  debug:0,
+};
+
+function sendMsg(type,data={}){
+  if(!G.conn||!G.conn.open)return;
+  try{G.conn.send(JSON.stringify({type,...data}));}catch(e){}
+}
+
+function onMsg(raw){
+  let m;try{m=JSON.parse(raw);}catch(e){return;}
+  switch(m.type){
+    case'hello':
+      G.oppName=m.name;
+      if(G.isHost){G.cfg.p2Name=m.name;}
+      render();break;
+    case'start':
+      G.cfg=m.cfg;G.questions=m.questions;
+      _startGame(false);break;
+    case'answer':
+      if(m.qi===G.qIdx&&G.phase==='playing'){
+        G.oppAns=m.choice;
+        G.oppTimes.push(Date.now()-G.qStart);
+        render();checkBoth();
+      }break;
+  }
+}
+
+function setupConn(conn){
+  G.conn=conn;
+  conn.on('open',()=>{
+    setConn('on');
+    toast('✅ 對手已連線！','var(--green)');
+    sendMsg('hello',{name:G.myName});
+    render();
+  });
+  conn.on('data',d=>{onMsg(d);});
+  conn.on('close',()=>{setConn('off');toast('⚠ 對手已斷線','var(--red)');});
+  conn.on('error',e=>{toast('連線錯誤: '+e.type,'var(--red)');});
+}
+
+function hostRoom(){
+  if(!window.Peer){toast('⚠ 網路元件載入中，請稍候再試','var(--red)');return;}
+  G.isHost=true;
+  const code=genCode();G.room=code;
+  setConn('con');toast('📡 建立房間中…');
+  const peer=new Peer('wd-'+code,PEERJS_OPTS);
+  G.peer=peer;
+  peer.on('open',()=>{
+    setConn('con');
+    G.screen='lobby';render();
+    toast('🏠 房間 '+code+' 已建立','var(--green)');
+  });
+  peer.on('connection',conn=>setupConn(conn));
+  peer.on('error',e=>{
+    toast('❌ 建立失敗：'+e.type,'var(--red)');
+    setConn('off');G.isHost=false;G.peer=null;
+  });
+}
+
+function joinRoom(code){
+  if(!window.Peer){toast('⚠ 網路元件載入中，請稍候再試','var(--red)');return;}
+  G.isHost=false;G.room=code.toUpperCase();
+  setConn('con');toast('🔍 連接房間 '+G.room+'…');
+  const peer=new Peer(undefined,PEERJS_OPTS);
+  G.peer=peer;
+  peer.on('open',()=>{
+    const conn=peer.connect('wd-'+G.room,{reliable:true,serialization:'json'});
+    G.screen='lobby';render();
+    setupConn(conn);
+  });
+  peer.on('error',e=>{
+    toast('❌ 連接失敗：'+e.type,'var(--red)');
+    setConn('off');G.peer=null;
+  });
+}
+
+function destroyPeer(){
+  if(G.conn){try{G.conn.close();}catch(e){}G.conn=null;}
+  if(G.peer){try{G.peer.destroy();}catch(e){}G.peer=null;}
+  setConn('off');
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOGIC
+// ═══════════════════════════════════════════════════════
+function buildQ(cfg){
+  const bank=cfg.wordBank==='custom'&&G.customBank.length>0
+    ?G.customBank:(BANKS[cfg.wordBank]||BANKS.medium);
+  return pickQ(bank,cfg.rounds);
+}
+
+function resetGame(){
+  clearInterval(G._timer);clearTimeout(G._revTO);clearTimeout(G._aiTO);
+  G.qIdx=0;G.phase='playing';
+  G.myAns=null;G.oppAns=null;
+  G.myScore=0;G.oppScore=0;
+  G.myTimes=[];G.oppTimes=[];
+  G.mySt=0;G.oppSt=0;G.myMaxSt=0;G.oppMaxSt=0;
+  G.timeLeft=10;G.l1Ans=null;G.l2Ans=null;
+}
+
+function startTimer(){
+  clearInterval(G._timer);
+  G.timeLeft=10;G.qStart=Date.now();
+  G._timer=setInterval(()=>{
+    G.timeLeft--;
+    patchTimer();
+    if(G.timeLeft<=0){clearInterval(G._timer);onTimeUp();}
+  },1000);
+}
+
+function patchTimer(){
+  const t=G.timeLeft;
+  const c=t>6?'var(--green)':t>3?'var(--gold)':'var(--red)';
+  const d=(t/10)*163.4;
+  qs('#tcircle').forEach(el=>{el.style.stroke=c;el.setAttribute('stroke-dasharray',d+' 163.4');});
+  qs('#tnum').forEach(el=>{el.textContent=t;el.style.color=c;});
+}
+
+function onTimeUp(){
+  if(G.phase!=='playing')return;
+  if(G.mode==='local'){
+    if(G.l1Ans===null)G.l1Ans=-1;
+    if(G.l2Ans===null)G.l2Ans=-1;
+    scoreLocal();revealAll();
+  }else{
+    if(G.myAns===null)G.myTimes.push(10000);
+    if(G.oppAns===null)G.oppTimes.push(10000);
+    scoreMain();revealAll();
+  }
+}
+
+function ansMain(choice){
+  if(G.phase!=='playing'||G.myAns!==null)return;
+  G.myAns=choice;G.myTimes.push(Date.now()-G.qStart);
+  if(G.mode==='online')sendMsg('answer',{qi:G.qIdx,choice});
+  render();checkBoth();
+}
+
+function ansLocal(player,choice){
+  if(G.phase!=='playing')return;
+  if(player===1&&G.l1Ans===null)G.l1Ans=choice;
+  else if(player===2&&G.l2Ans===null)G.l2Ans=choice;
+  else return;
+  render();
+  if(G.l1Ans!==null&&G.l2Ans!==null){clearInterval(G._timer);scoreLocal();revealAll();}
+}
+
+function checkBoth(){
+  if(G.myAns!==null&&G.oppAns!==null){
+    clearInterval(G._timer);clearTimeout(G._aiTO);
+    scoreMain();revealAll();
+  }
+}
+
+function scoreMain(){
+  const q=G.questions[G.qIdx];
+  if(G.myAns===q.answer){G.myScore++;G.mySt++;G.myMaxSt=Math.max(G.myMaxSt,G.mySt);}else G.mySt=0;
+  if(G.oppAns===q.answer){G.oppScore++;G.oppSt++;G.oppMaxSt=Math.max(G.oppMaxSt,G.oppSt);}else G.oppSt=0;
+}
+
+function scoreLocal(){
+  const q=G.questions[G.qIdx];
+  if(G.l1Ans===q.answer){G.myScore++;G.mySt++;G.myMaxSt=Math.max(G.myMaxSt,G.mySt);}else G.mySt=0;
+  if(G.l2Ans===q.answer){G.oppScore++;G.oppSt++;G.oppMaxSt=Math.max(G.oppMaxSt,G.oppSt);}else G.oppSt=0;
+}
+
+function revealAll(){
+  G.phase='reveal';render();
+  G._revTO=setTimeout(nextQ,2000);
+}
+
+function nextQ(){
+  const nx=G.qIdx+1;
+  if(nx>=G.questions.length){G.screen='result';render();return;}
+  G.qIdx=nx;G.phase='playing';
+  G.myAns=null;G.oppAns=null;G.l1Ans=null;G.l2Ans=null;
+  render();startTimer();
+  if(G.mode==='ai')schedAI();
+}
+
+function schedAI(){
+  clearTimeout(G._aiTO);
+  const q=G.questions[G.qIdx];
+  const ok=Math.random()<aiAcc(G.aiDiff);
+  const w=[0,1,2,3].filter(i=>i!==q.answer);
+  const c=ok?q.answer:w[Math.floor(Math.random()*3)];
+  G._aiTO=setTimeout(()=>{
+    if(G.phase!=='playing')return;
+    G.oppAns=c;G.oppTimes.push(Date.now()-G.qStart);
+    render();checkBoth();
+  },Math.min(aiDelay(G.aiDiff),9300));
+}
+
+function _startGame(asHost){
+  resetGame();G.mode='online';G.screen='game';
+  render();startTimer();
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════
+function render(){
+  const app=$('app');if(!app)return;
+  switch(G.screen){
+    case'home':   app.innerHTML=renderHome();break;
+    case'lobby':  app.innerHTML=renderLobby();break;
+    case'game':   app.innerHTML=renderGame();break;
+    case'result': app.innerHTML=renderResult();break;
+  }
+  bind();
+}
+
+// ── HOME ────────────────────────────────────────────────
+function renderHome(){
+  const wb=G.cfg.wordBank||'medium';
+  const r=G.cfg.rounds||10;
+  return`
+<div class="logo-wrap">
+  <span class="logo-icon">⚔️</span>
+  <div class="logo-title">WORD DUEL</div>
+  <div class="logo-sub">英文單字對決</div>
+</div>
+<div class="card">
+  <div class="ctitle">對戰模式</div>
+  <div class="mgrid">
+    <div class="mtab${G.mode==='online'?' sel':''}" data-mode="online"><div class="ti">🌐</div><div class="tl">線上對戰</div></div>
+    <div class="mtab${G.mode==='local'?' sel':''}" data-mode="local"><div class="ti">📱</div><div class="tl">同機雙人</div></div>
+    <div class="mtab${G.mode==='ai'?' sel':''}" data-mode="ai"><div class="ti">🤖</div><div class="tl">對戰電腦</div></div>
+  </div>
+</div>
+<div class="card">
+  <div class="ctitle">玩家名稱</div>
+  <div class="${G.mode==='local'?'two':''}">
+    <div>
+      ${G.mode==='local'?'<div style="font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">玩家一</div>':''}
+      <input type="text" id="p1n" value="${G.myName}" placeholder="${G.mode==='online'?'你的暱稱':'玩家一名稱'}">
+    </div>
+    ${G.mode==='local'?`<div><div style="font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px">玩家二</div><input type="text" id="p2n" value="${G.p2Name}" placeholder="玩家二名稱"></div>`:''}
+  </div>
+</div>
+${G.mode==='ai'?`<div class="card"><div class="ctitle">電腦難度</div><div class="pills">
+  <div class="pill easy${G.aiDiff==='easy'?' sel':''}" data-ai="easy">🟢 簡單</div>
+  <div class="pill medium${G.aiDiff==='medium'?' sel':''}" data-ai="medium">🟡 中等</div>
+  <div class="pill hard${G.aiDiff==='hard'?' sel':''}" data-ai="hard">🔴 困難</div>
+</div></div>`:''}
+<div class="card">
+  <div class="ctitle">回合數：<span id="rl">${r}</span> 題</div>
+  <input type="range" id="rs" min="5" max="20" value="${r}">
+  <div style="display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:4px"><span>5題</span><span>20題</span></div>
+</div>
+<div class="card">
+  <div class="ctitle">單字題庫</div>
+  <div class="pills" style="margin-bottom:10px">
+    <div class="pill easy${wb==='easy'?' sel':''}" data-bank="easy">📗 簡單</div>
+    <div class="pill medium${wb==='medium'?' sel':''}" data-bank="medium">📒 中等</div>
+    <div class="pill hard${wb==='hard'?' sel':''}" data-bank="hard">📕 困難</div>
+    <div class="pill custom${wb==='custom'?' sel':''}" data-bank="custom">✏️ 自訂</div>
+  </div>
+  <div id="carea" style="${wb==='custom'?'':'display:none'}">
+    <div class="divider"></div>
+    <div class="imp-zone" id="impz">📂 拖曳 CSV/TXT 或點擊上傳<input type="file" id="fin" accept=".csv,.txt,.tsv" style="display:none"></div>
+    <div style="color:var(--muted);font-size:11px;font-family:var(--fm);letter-spacing:1px;margin-bottom:6px">格式：英文單字, 正確中文, 錯誤1, 錯誤2, 錯誤3</div>
+    <textarea id="btxt" placeholder="手動輸入，每行一題：
+apple, 蘋果, 香蕉, 橘子, 葡萄
+brave, 勇敢的, 聰明的, 美麗的, 強壯的"></textarea>
+    <div class="brow" style="margin-top:8px">
+      <button class="btn" id="pbtn">✓ 解析匯入</button>
+      <button class="btn danger" id="cbtn">✕ 清除</button>
+    </div>
+    <div id="pmsg"></div>
+    ${G.customBank.length>0?`<div class="divider"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span class="tag">已載入 ${G.customBank.length} 題</span>
+    </div>
+    <div class="q-list">${G.customBank.map((q,i)=>`
+      <div class="qi"><span class="qw">${q.word}</span><span class="qa">→ ${q.options[q.answer]}</span><button class="qdel" data-di="${i}">✕</button></div>`).join('')}
+    </div>`:''}
+  </div>
+</div>
+<button class="btn primary bfull" id="sbtn">${G.mode==='online'?'🌐 線上對戰':'⚔️ 開始對決'}</button>`;
+}
+
+// ── LOBBY ────────────────────────────────────────────────
+function renderLobby(){
+  const oppOk=G.conn&&G.conn.open&&G.oppName;
+  const canStart=G.isHost&&oppOk;
+  return`
+<div style="text-align:center;padding:22px 0 16px">
+  <div style="font-size:38px;margin-bottom:8px">🚪</div>
+  <div class="tag" style="display:block;text-align:center;margin-bottom:4px;font-size:11px">房間代碼</div>
+  <div class="rcode">${G.room}</div>
+  <div style="color:var(--muted);font-size:12px;margin-bottom:8px">將代碼分享給對手</div>
+  <button class="btn" id="copybtn" style="font-size:10px">📋 複製代碼</button>
+</div>
+<div class="card">
+  <div class="ctitle">玩家狀態</div>
+  <div class="pslot"><span class="picon">👑</span><span class="pname">${G.myName||'房主'}</span><span class="badge host">房主</span></div>
+  <div class="pslot"><span class="picon">${oppOk?'🎮':'⏳'}</span><span class="pname">${oppOk?G.oppName:'等待對手加入…'}</span><span class="badge ${oppOk?'joined':'waiting'}">${oppOk?'已連線':'等待中'}</span></div>
+</div>
+${G.isHost?`
+<div class="card" style="font-size:13px;color:var(--muted);line-height:2">
+  <div class="ctitle">房間設定</div>
+  📚 題庫：${G.cfg.bankLabel||'—'} &nbsp;|&nbsp; 🎯 ${G.cfg.rounds||10} 題
+</div>
+${canStart?`<button class="btn primary bfull" id="hsbtn">⚔️ 開始遊戲</button>`:
+`<div style="text-align:center;padding:10px;color:var(--muted);font-family:var(--fm);font-size:10px;letter-spacing:2px;animation:blink 1.5s infinite">等待對手連線…</div>`}`
+:`<div style="text-align:center;padding:14px;color:var(--muted);font-family:var(--fm);font-size:10px;letter-spacing:2px;animation:blink 1.5s infinite">等待房主開始遊戲…</div>`}
+<button class="btn danger bfull" id="lbtn" style="margin-top:10px">✕ 離開房間</button>`;
+}
+
+// ── GAME ─────────────────────────────────────────────────
+function renderGame(){
+  const q=G.questions[G.qIdx];
+  if(!q)return'<div style="text-align:center;padding:40px;font-family:var(--fm)">載入中…</div>';
+  const isL=G.mode==='local';
+  const p1n=G.myName||'玩家一';
+  const p2n=G.mode==='ai'?'🤖 電腦':G.mode==='local'?(G.p2Name||'玩家二'):G.oppName;
+  const total=G.questions.length;
+  const ph=G.phase;
+  const a1=isL?G.l1Ans:G.myAns;
+  const a2=isL?G.l2Ans:G.oppAns;
+  const t=G.timeLeft;
+  const tc=t>6?'var(--green)':t>3?'var(--gold)':'var(--red)';
+  const dash=(t/10)*163.4;
+
+  const optCls=(idx,forP2)=>{
+    const ans=forP2?G.l2Ans:(isL?G.l1Ans:G.myAns);
+    if(ph==='reveal'){
+      if(idx===q.answer)return'correct';
+      if(a1===idx||a2===idx)return'wrong';
+      return'';
+    }
+    return ans===idx?'selme':'';
+  };
+  const dot=(a,isReveal)=>{
+    if(!isReveal)return a!==null?'ans':'';
+    return a===q.answer?'ok':'ng';
+  };
+
+  let sbarHtml='';
+  if(ph==='playing'){
+    if(isL){
+      if(a1===null&&a2===null)sbarHtml=`<div class="sbar idle">⏱ 雙方請作答！</div>`;
+      else if(a1!==null&&a2===null)sbarHtml=`<div class="sbar wait">⏳ 等待 ${p2n} 作答…</div>`;
+      else sbarHtml=`<div class="sbar wait">⏳ 等待 ${p1n} 作答…</div>`;
+    }else{
+      if(G.myAns===null)sbarHtml=`<div class="sbar idle">⏱ 請作答！</div>`;
+      else if(G.mode==='ai')sbarHtml=`<div class="sbar wait">🤖 電腦思考中…</div>`;
+      else sbarHtml=`<div class="sbar wait">⏳ 等待對手…</div>`;
+    }
+  }else{
+    const mc=isL?a1===q.answer:G.myAns===q.answer;
+    const oc=isL?a2===q.answer:G.oppAns===q.answer;
+    sbarHtml=`<div class="sbar ${mc?'rev-ok':'rev-ng'}">${mc?'✅ 答對了！':'❌ 答錯了…'} &nbsp;|&nbsp; ${p2n}：${oc?'✅ 答對':'❌ 答錯'}</div>`;
+  }
+
+  return`
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+  <span class="mono" style="font-size:9px;color:var(--muted);letter-spacing:2px">ROUND ${G.qIdx+1}/${total}</span>
+  <span class="mono" style="font-size:9px;color:var(--muted)">${G.cfg.bankLabel||''}</span>
+</div>
+<div class="prog-wrap"><div class="prog" style="width:${((G.qIdx+1)/total)*100}%"></div></div>
+<div class="sboard">
+  <div class="sc me">
+    <div class="scdot ${dot(a1,ph==='reveal')}"></div>
+    <div class="scname">${p1n}</div>
+    <div class="scscore" style="color:var(--ac)">${G.myScore}</div>
+  </div>
+  <div class="twrap">
+    <svg width="62" height="62" viewBox="0 0 62 62" style="transform:rotate(-90deg)">
+      <circle cx="31" cy="31" r="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/>
+      <circle id="tcircle" cx="31" cy="31" r="26" fill="none"
+        stroke="${tc}" stroke-width="5"
+        stroke-dasharray="${dash} 163.4"
+        style="transition:stroke-dasharray .3s linear,stroke .3s"/>
+    </svg>
+    <div id="tnum" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);font-family:var(--fm);font-size:17px;font-weight:900;color:${tc}">${t}</div>
+    <div class="vs-lbl">VS</div>
+  </div>
+  <div class="sc">
+    <div class="scdot ${dot(a2,ph==='reveal')}"></div>
+    <div class="scname" style="text-align:right">${p2n}</div>
+    <div class="scscore" style="color:var(--ac2);text-align:right">${G.oppScore}</div>
+  </div>
+</div>
+<div class="wbox">
+  <div class="wprompt">這個單字的中文意思是？</div>
+  <div class="wtext">${q.word}</div>
+</div>
+<div class="opts" id="op1">
+  ${q.options.map((o,i)=>`
+  <button class="opt ${optCls(i,false)}" data-o="${i}" ${a1!==null||ph==='reveal'?'disabled':''}>
+    <span class="olbl">${OL[i]}</span>${o}
+  </button>`).join('')}
+</div>
+${isL?`
+<div style="margin-top:16px">
+  <div class="mono" style="font-size:9px;color:var(--muted);letter-spacing:3px;text-align:center;margin-bottom:8px">── ${p2n} 作答 ──</div>
+  <div class="opts" id="op2">
+    ${q.options.map((o,i)=>`
+    <button class="opt ${optCls(i,true)}" data-o2="${i}" ${G.l2Ans!==null||ph==='reveal'?'disabled':''}>
+      <span class="olbl">${OL[i]}</span>${o}
+    </button>`).join('')}
+  </div>
+</div>`:''}
+${sbarHtml}`;
+}
+
+// ── RESULT ───────────────────────────────────────────────
+function renderResult(){
+  const p1n=G.myName||'玩家一';
+  const p2n=G.mode==='ai'?'電腦':G.mode==='local'?(G.p2Name||'玩家二'):G.oppName;
+  const s1=G.myScore,s2=G.oppScore,tot=G.questions.length;
+  const tie=s1===s2,p1w=s1>s2;
+  const pt1=Math.round(s1/tot*100),pt2=Math.round(s2/tot*100);
+  const avg=arr=>arr.length?(arr.reduce((a,b)=>a+b,0)/arr.length/1000).toFixed(1):'—';
+  return`
+<div class="rhero">
+  <div class="rtrophy">${tie?'🤝':p1w?'🏆':'💀'}</div>
+  <div class="rtitle">${tie?'平局！':p1w?p1n+' 獲勝！':p2n+' 獲勝！'}</div>
+  <div class="rsub">${tie?'DRAW':p1w?'VICTORY':'DEFEAT'}</div>
+</div>
+<div class="card">
+  <div class="ctitle">最終比分</div>
+  <div class="cmp">
+    <div class="cs${!tie&&p1w?' win':''}">
+      <div class="csname">${p1n}</div>
+      <div class="csval">${s1}</div>
+      <div class="cspct">${pt1}%</div>
+      <div class="csbw"><div class="csb" style="width:${pt1}%;background:${p1w?'linear-gradient(90deg,#b8860b,var(--gold))':'linear-gradient(90deg,#0090b8,var(--ac))'}"></div></div>
+    </div>
+    <div class="cvd">VS</div>
+    <div class="cs${!tie&&!p1w?' win':''}">
+      <div class="csname">${p2n}</div>
+      <div class="csval">${s2}</div>
+      <div class="cspct">${pt2}%</div>
+      <div class="csbw"><div class="csb" style="width:${pt2}%;background:${!p1w&&!tie?'linear-gradient(90deg,#b8860b,var(--gold))':'linear-gradient(90deg,#c05020,var(--ac2))'}"></div></div>
+    </div>
+  </div>
+</div>
+<div class="sgrid" style="margin-bottom:12px">
+  <div class="scell"><div class="slbl">平均反應時間</div><div class="svals"><div class="sv" style="color:var(--ac)">${avg(G.myTimes)}s</div><div class="sv" style="color:var(--ac2)">${avg(G.oppTimes)}s</div></div></div>
+  <div class="scell"><div class="slbl">最高連勝</div><div class="svals"><div class="sv" style="color:var(--ac)">${G.myMaxSt}🔥</div><div class="sv" style="color:var(--ac2)">${G.oppMaxSt}🔥</div></div></div>
+</div>
+<div class="brow">
+  <button class="btn primary" id="agbtn" style="flex:1;padding:14px">再來一局 ⚔️</button>
+  <button class="btn" id="hmbtn" style="flex:1;padding:14px">返回主頁 🏠</button>
+</div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  BIND EVENTS
+// ═══════════════════════════════════════════════════════
+function bind(){
+  // mode tabs
+  qs('[data-mode]').forEach(el=>el.addEventListener('click',()=>{G.mode=el.dataset.mode;render();}));
+  // ai diff
+  qs('[data-ai]').forEach(el=>el.addEventListener('click',()=>{G.aiDiff=el.dataset.ai;render();}));
+  // bank pills
+  qs('[data-bank]').forEach(el=>el.addEventListener('click',()=>{
+    G.cfg.wordBank=el.dataset.bank;
+    if(el.dataset.bank!=='custom')G.customBank=[];
+    render();
+  }));
+  // rounds
+  $('rs')?.addEventListener('input',e=>{G.cfg.rounds=+e.target.value;$('rl').textContent=e.target.value;});
+  // import
+  $('impz')?.addEventListener('click',()=>$('fin')?.click());
+  $('impz')?.addEventListener('dragover',e=>{e.preventDefault();e.currentTarget.classList.add('drag');});
+  $('impz')?.addEventListener('dragleave',e=>e.currentTarget.classList.remove('drag'));
+  $('impz')?.addEventListener('drop',e=>{e.preventDefault();e.currentTarget.classList.remove('drag');readFile(e.dataTransfer.files[0]);});
+  $('fin')?.addEventListener('change',e=>{if(e.target.files[0])readFile(e.target.files[0]);});
+  $('pbtn')?.addEventListener('click',()=>{
+    const txt=$('btxt')?.value||'';
+    const p=parseBank(txt);
+    if(!p.length){$('pmsg').innerHTML='<div class="err">⚠ 解析失敗，請確認格式</div>';return;}
+    G.customBank=[...G.customBank,...p];
+    $('pmsg').innerHTML=`<div class="ok">✓ 成功匯入 ${p.length} 題（共 ${G.customBank.length} 題）</div>`;
+    $('btxt').value='';setTimeout(render,700);
+  });
+  $('cbtn')?.addEventListener('click',()=>{G.customBank=[];render();});
+  qs('[data-di]').forEach(el=>el.addEventListener('click',()=>{G.customBank.splice(+el.dataset.di,1);render();}));
+
+  // start btn
+  $('sbtn')?.addEventListener('click',onStart);
+
+  // lobby
+  $('copybtn')?.addEventListener('click',()=>{
+    navigator.clipboard?.writeText(G.room).then(()=>toast('✅ 已複製代碼！','var(--green)'))
+      .catch(()=>{toast('代碼：'+G.room,'var(--ac)');});
+  });
+  $('hsbtn')?.addEventListener('click',()=>{
+    const qs2=buildQ(G.cfg);G.questions=qs2;
+    sendMsg('start',{cfg:{...G.cfg,p1Name:G.myName,p2Name:G.oppName},questions:qs2});
+    _startGame(true);
+  });
+  $('lbtn')?.addEventListener('click',()=>{destroyPeer();G.screen='home';render();});
+
+  // game answers
+  qs('[data-o]').forEach(el=>el.addEventListener('click',()=>ansMain(+el.dataset.o)));
+  qs('[data-o2]').forEach(el=>el.addEventListener('click',()=>ansLocal(2,+el.dataset.o2)));
+
+  // result
+  $('agbtn')?.addEventListener('click',()=>{
+    if(G.mode==='online'){destroyPeer();G.screen='home';render();return;}
+    G.questions=buildQ(G.cfg);resetGame();G.screen='game';render();startTimer();
+    if(G.mode==='ai')schedAI();
+  });
+  $('hmbtn')?.addEventListener('click',()=>{destroyPeer();G.screen='home';render();});
+}
+
+// ─ onStart ──────────────────────────────────────────────
+function onStart(){
+  G.myName=$('p1n')?.value.trim()||'玩家一';
+  G.p2Name=$('p2n')?.value.trim()||'玩家二';
+  G.cfg.rounds=+($('rs')?.value||10);
+  const wb=G.cfg.wordBank||'medium';
+  G.cfg.bankLabel=wb==='custom'?'自訂':{easy:'簡單',medium:'中等',hard:'困難'}[wb]||'中等';
+  if(wb==='custom'&&G.customBank.length<5){toast('⚠ 自訂題庫至少 5 題！','var(--red)');return;}
+  if(G.mode==='ai'){
+    G.questions=buildQ(G.cfg);resetGame();G.screen='game';render();startTimer();schedAI();
+  }else if(G.mode==='local'){
+    G.questions=buildQ(G.cfg);resetGame();G.screen='game';render();startTimer();
+  }else{
+    showOnlineModal();
+  }
+}
+
+// ─ Online modal ──────────────────────────────────────────
+function showOnlineModal(){
+  const ov=document.createElement('div');
+  ov.className='overlay';
+  ov.innerHTML=`
+  <div class="modal">
+    <div class="mtitle">🌐 線上對戰</div>
+    <button class="btn primary bfull" id="mhost" style="margin-bottom:10px">🏠 建立新房間</button>
+    <div class="divider"></div>
+    <div style="font-family:var(--fm);font-size:9px;color:var(--muted);letter-spacing:2px;text-align:center;margin-bottom:10px">或加入現有房間</div>
+    <input type="text" id="mcode" placeholder="輸入 6 碼代碼"
+      style="text-align:center;font-family:var(--fm);font-size:22px;letter-spacing:6px;text-transform:uppercase;margin-bottom:8px">
+    <button class="btn bfull" id="mjoin">🚪 加入房間</button>
+    <button class="btn bfull" id="mcancel" style="margin-top:8px;color:var(--muted)">取消</button>
+  </div>`;
+  document.body.appendChild(ov);
+  $('mhost').addEventListener('click',()=>{document.body.removeChild(ov);hostRoom();});
+  $('mjoin').addEventListener('click',()=>{
+    const c=$('mcode').value.trim().toUpperCase();
+    if(c.length<4){toast('⚠ 請輸入有效代碼','var(--red)');return;}
+    document.body.removeChild(ov);joinRoom(c);
+  });
+  $('mcancel').addEventListener('click',()=>document.body.removeChild(ov));
+  // auto-uppercase while typing
+  $('mcode').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase();});
+}
+
+// ─ File reader ───────────────────────────────────────────
+function readFile(f){
+  const r=new FileReader();
+  r.onload=e=>{
+    if($('btxt'))$('btxt').value=e.target.result;
+    const p=parseBank(e.target.result);
+    if($('pmsg'))$('pmsg').innerHTML=p.length>0
+      ?`<div class="ok">✅ 讀取 ${p.length} 題，點擊「解析匯入」確認</div>`
+      :`<div class="err">⚠ 請確認格式後點擊解析</div>`;
+  };
+  r.readAsText(f,'UTF-8');
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+G.mode='ai';
+G.cfg={wordBank:'medium',rounds:10,bankLabel:'中等'};
+render();
+</script>
+</body>
+</html>
